@@ -131,9 +131,9 @@ contract SaleRound is ReentrancyGuard, Pausable {
      * @param referrer Address of referrer (use address(0) if no referrer)
      */
     function buyWithUSDC(uint256 usdcAmount, address referrer) external nonReentrant whenNotPaused roundActive {
-        _checkEligibility(msg.sender);
-        
         uint256 usdValue = usdcAmount; // USDC has 6 decimals, same as our USD representation
+        _checkEligibility(msg.sender, usdValue);
+        
         uint256 tokenAmount = _calculateTokenAmount(usdValue);
         
         _processPurchase(msg.sender, address(usdc), usdcAmount, usdValue, tokenAmount, referrer);
@@ -150,9 +150,9 @@ contract SaleRound is ReentrancyGuard, Pausable {
      * @param referrer Address of referrer (use address(0) if no referrer)
      */
     function buyWithUSDT(uint256 usdtAmount, address referrer) external nonReentrant whenNotPaused roundActive {
-        _checkEligibility(msg.sender);
-        
         uint256 usdValue = usdtAmount; // USDT has 6 decimals, same as our USD representation
+        _checkEligibility(msg.sender, usdValue);
+        
         uint256 tokenAmount = _calculateTokenAmount(usdValue);
         
         _processPurchase(msg.sender, address(usdt), usdtAmount, usdValue, tokenAmount, referrer);
@@ -169,10 +169,11 @@ contract SaleRound is ReentrancyGuard, Pausable {
      */
     function buyWithETH(address referrer) external payable nonReentrant whenNotPaused roundActive {
         require(msg.value > 0, "SaleRound: zero ETH");
-        _checkEligibility(msg.sender);
         
         uint256 ethPrice = _getETHPrice(); // ETH price in USD with 6 decimals
         uint256 usdValue = (msg.value * ethPrice) / 1e18; // Convert ETH (18 decimals) to USD (6 decimals)
+        _checkEligibility(msg.sender, usdValue);
+        
         uint256 tokenAmount = _calculateTokenAmount(usdValue);
         
         _processPurchase(msg.sender, address(0), msg.value, usdValue, tokenAmount, referrer);
@@ -257,10 +258,12 @@ contract SaleRound is ReentrancyGuard, Pausable {
     
     /**
      * @dev Check if user is eligible to participate
+     * @param user Address to check
+     * @param usdAmount USD amount being spent (6 decimals)
      */
-    function _checkEligibility(address user) private {
+    function _checkEligibility(address user, uint256 usdAmount) private {
         require(kycRegistry.isKYCApproved(user), "SaleRound: not KYC approved");
-        rateLimiter.checkAndUpdateLimit(user);
+        rateLimiter.checkAndUpdateLimit(user, usdAmount);
     }
     
     /**

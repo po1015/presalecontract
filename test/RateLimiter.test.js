@@ -32,33 +32,33 @@ describe("RateLimiter", function () {
     it("Should allow first transaction", async function () {
       const { limiter, saleRound, user1 } = await loadFixture(deployRateLimiterFixture);
       
-      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
       
       const info = await limiter.getRateLimitInfo(user1.address);
-      expect(info.txCount).to.equal(1);
+      expect(info[1]).to.equal(1); // txCount
     });
 
     it("Should revert when transaction too frequent", async function () {
       const { limiter, saleRound, user1 } = await loadFixture(deployRateLimiterFixture);
       
-      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
       
       await expect(
-        limiter.connect(saleRound).checkAndUpdateLimit(user1.address)
+        limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0)
       ).to.be.revertedWith("RateLimiter: too frequent");
     });
 
     it("Should allow transaction after minimum time", async function () {
       const { limiter, saleRound, user1 } = await loadFixture(deployRateLimiterFixture);
       
-      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
       
       await time.increase(31); // Wait 31 seconds
       
-      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
       
       const info = await limiter.getRateLimitInfo(user1.address);
-      expect(info.txCount).to.equal(2);
+      expect(info[1]).to.equal(2); // txCount
     });
 
     it("Should revert when period limit exceeded", async function () {
@@ -66,28 +66,28 @@ describe("RateLimiter", function () {
       
       // Make 10 transactions (the limit)
       for (let i = 0; i < 10; i++) {
-        await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+        await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
         await time.increase(31);
       }
       
       // 11th should fail
       await expect(
-        limiter.connect(saleRound).checkAndUpdateLimit(user1.address)
+        limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0)
       ).to.be.revertedWith("RateLimiter: period limit exceeded");
     });
 
     it("Should reset after period expires", async function () {
       const { limiter, saleRound, user1 } = await loadFixture(deployRateLimiterFixture);
       
-      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
       
       // Warp to next period
       await time.increase(86401); // 1 day + 1 second
       
-      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
       
       const info = await limiter.getRateLimitInfo(user1.address);
-      expect(info.txCount).to.equal(1); // Should reset to 1
+      expect(info[1]).to.equal(1); // Should reset to 1, txCount
     });
   });
 
@@ -105,12 +105,12 @@ describe("RateLimiter", function () {
     it("Should reset user limit", async function () {
       const { limiter, admin, saleRound, user1 } = await loadFixture(deployRateLimiterFixture);
       
-      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address);
+      await limiter.connect(saleRound).checkAndUpdateLimit(user1.address, 0);
       await limiter.connect(admin).resetLimit(user1.address);
       
       const info = await limiter.getRateLimitInfo(user1.address);
-      expect(info.lastTxTime).to.equal(0);
-      expect(info.txCount).to.equal(0);
+      expect(info[0]).to.equal(0); // lastTxTime
+      expect(info[1]).to.equal(0); // txCount
     });
   });
 
@@ -119,7 +119,7 @@ describe("RateLimiter", function () {
       const { limiter, user1 } = await loadFixture(deployRateLimiterFixture);
       
       await expect(
-        limiter.connect(user1).checkAndUpdateLimit(user1.address)
+        limiter.connect(user1).checkAndUpdateLimit(user1.address, 0)
       ).to.be.reverted;
     });
 

@@ -16,6 +16,8 @@ contract RateLimiter is AccessControl {
         uint256 lastTransactionTime;
         uint256 transactionCount;
         uint256 periodStart;
+        uint256 dailySpentUSD; // Daily spending in USD (6 decimals)
+        uint256 dailyPeriodStart; // Start of daily spending period
     }
     
     mapping(address => RateLimit) private _limits;
@@ -24,9 +26,11 @@ contract RateLimiter is AccessControl {
     uint256 public minTimeBetweenTx = 30; // 30 seconds between transactions
     uint256 public maxTxPerPeriod = 10; // Maximum 10 transactions per period
     uint256 public period = 1 days; // Period duration
+    uint256 public maxDailySpendingUSD = 500 * 1e6; // Maximum $500 daily spending (6 decimals)
     
     event RateLimitExceeded(address indexed account, string reason);
     event RateLimitUpdated(uint256 minTimeBetweenTx, uint256 maxTxPerPeriod, uint256 period);
+    event DailySpendingLimitUpdated(uint256 maxDailySpendingUSD);
     event LimitReset(address indexed account);
     
     /**
@@ -42,9 +46,10 @@ contract RateLimiter is AccessControl {
     /**
      * @notice Check rate limit and update if passed
      * @param account Address to check
+     * @param usdAmount USD amount being spent (6 decimals)
      * @dev Reverts if rate limit is exceeded
      */
-    function checkAndUpdateLimit(address account) external onlyRole(SALE_ROUND_ROLE) {
+    function checkAndUpdateLimit(address account, uint256 usdAmount) external onlyRole(SALE_ROUND_ROLE) {
         RateLimit storage limit = _limits[account];
         uint256 currentTime = block.timestamp;
         
@@ -66,9 +71,22 @@ contract RateLimiter is AccessControl {
             revert("RateLimiter: period limit exceeded");
         }
         
+        // Reset daily spending if needed (24 hours)
+        if (currentTime >= limit.dailyPeriodStart + 1 days) {
+            limit.dailyPeriodStart = currentTime;
+            limit.dailySpentUSD = 0;
+        }
+        
+        // Check daily spending limit
+        if (limit.dailySpentUSD + usdAmount > maxDailySpendingUSD) {
+            emit RateLimitExceeded(account, "Daily spending limit exceeded");
+            revert("RateLimiter: daily spending limit exceeded");
+        }
+        
         // Update limits
         limit.lastTransactionTime = currentTime;
         limit.transactionCount++;
+        limit.dailySpentUSD += usdAmount;
     }
     
     /**
@@ -103,19 +121,40 @@ contract RateLimiter is AccessControl {
     }
     
     /**
+     * @notice Update daily spending limit
+     * @param _maxDailySpendingUSD New maximum daily spending in USD (6 decimals)
+     */
+    function updateDailySpendingLimit(uint256 _maxDailySpendingUSD) external onlyRole(RATE_ADMIN_ROLE) {
+        require(_maxDailySpendingUSD > 0, "RateLimiter: invalid daily spending limit");
+        
+        maxDailySpendingUSD = _maxDailySpendingUSD;
+        emit DailySpendingLimitUpdated(_maxDailySpendingUSD);
+    }
+    
+    /**
      * @notice Get rate limit info for an address
      * @param account Address to query
      * @return lastTxTime Last transaction timestamp
      * @return txCount Transaction count in current period
      * @return periodStart Start of current period
+     * @return dailySpentUSD Daily spending in USD (6 decimals)
+     * @return dailyPeriodStart Start of daily spending period
      */
     function getRateLimitInfo(address account) external view returns (
         uint256 lastTxTime,
         uint256 txCount,
-        uint256 periodStart
+        uint256 periodStart,
+        uint256 dailySpentUSD,
+        uint256 dailyPeriodStart
     ) {
         RateLimit memory limit = _limits[account];
-        return (limit.lastTransactionTime, limit.transactionCount, limit.periodStart);
+        return (
+            limit.lastTransactionTime, 
+            limit.transactionCount, 
+            limit.periodStart,
+            limit.dailySpentUSD,
+            limit.dailyPeriodStart
+        );
     }
 }
 
