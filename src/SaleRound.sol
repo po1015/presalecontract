@@ -134,7 +134,7 @@ contract SaleRound is ReentrancyGuard, Pausable {
         uint256 usdValue = usdcAmount; // USDC has 6 decimals, same as our USD representation
         _checkEligibility(msg.sender, usdValue);
         
-        uint256 tokenAmount = _calculateTokenAmount(usdValue);
+        uint256 tokenAmount = _calculateTokenAmount(usdValue);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
         
         _processPurchase(msg.sender, address(usdc), usdcAmount, usdValue, tokenAmount, referrer);
         
@@ -181,6 +181,7 @@ contract SaleRound is ReentrancyGuard, Pausable {
         // Transfer ETH to FundsVault
         fundsVault.depositETH{value: msg.value}();
     }
+    
     
     /**
      * @notice Update round configuration (manager only)
